@@ -1,7 +1,6 @@
 ######################################################################
 #Analysis of visual closure
-#
-#Author: Samuel Forbes
+
 #
 #Note: Runs analysis on data created with the new
 #     script. Final analysis
@@ -14,7 +13,9 @@ library(readr)
 library(dplyr)
 library(rstan)
 library(brms)
+library(tidybayes)
 library(sjstats)
+library(ggsci)
 library(ggplot2); theme_set(theme_classic(base_size = 30))
 library(eyetrackingR)
 
@@ -151,14 +152,16 @@ timecourse <- make_time_sequence_data(clean,
                                       summarize_by = 'ID')
 
 timecourse %>%
+  mutate(Experiment = ifelse(Condition == 'Closure', 'Experiment 1', 'Experiment 2')) %>% 
   ggplot(aes(x = Time, y = Prop,
-             colour = Condition, linetype = Condition, shape = Condition)) +
+             colour = Experiment, linetype = Experiment, shape = Experiment)) +
   stat_summary(geom = 'pointrange', fun.data = 'mean_se') +
   geom_hline(yintercept = 0.5, colour = 'red', linetype = 2) +
   theme(legend.position = c(0.85, 0.85)) +
   xlab('Time (ms)') +
   ylab('Prop looks to target') +
-  scale_colour_manual(values = c('navyblue', 'turquoise')) +
+  #scale_colour_manual(values = c('navyblue', 'turquoise')) +
+  scale_color_jco() +
   ggsave('plots/Overall.pdf', width = 11.69, height = 8.27)
 #########################################################################
 # analyse Exp1
@@ -255,8 +258,10 @@ CLshortmodel %>%
   coord_cartesian(ylim = c(0.4, 0.75), xlim = c(0, 3000)) +
   xlab('Time (ms)') +
   ylab('Prop looks to target') +
-  scale_colour_manual(values = c('navyblue', 'turquoise')) +
-  scale_fill_manual(values = c('navyblue', 'turquoise')) +
+  # scale_colour_manual(values = c('navyblue', 'turquoise')) +
+  # scale_fill_manual(values = c('navyblue', 'turquoise')) +
+  scale_color_jco() +
+  scale_fill_jco() +
   ggsave('plots/BayesExp1_short.pdf', width = 11.69, height = 8.27)
 
 
@@ -361,8 +366,10 @@ CNshortmodel %>%
   coord_cartesian(ylim = c(0.4, 0.75), xlim = c(0, 3000)) +
   xlab('Time (ms)') +
   ylab('Prop looks to target') +
-  scale_colour_manual(values = c('navyblue', 'turquoise')) +
-  scale_fill_manual(values = c('navyblue', 'turquoise')) +
+  # scale_colour_manual(values = c('navyblue', 'turquoise')) +
+  # scale_fill_manual(values = c('navyblue', 'turquoise')) +
+  scale_color_jco() +
+  scale_fill_jco() +
   ggsave('plots/BayesExp2_short.pdf', width = 11.69, height = 8.27)
 
 ################################################################
@@ -424,23 +431,39 @@ combined <- bind_rows(CN2, CL2) %>%
 #   scale_colour_manual(values = c('navyblue', 'turquoise')) +
 #   facet_wrap(~Age)
 
-combined_short <- brm(SamplesInAOI|trials(SamplesTotal) ~
-                       (ot1 + ot2 + ot3) *
-                       Age_C * Cond_C +
-                       (1 + ot1 + ot2 + ot3|ID),
-                     family = binomial('logit'),
-                     prior = prior,
-                     data = combined,
-                     warmup = 1000,
-                     iter = 2000,
-                     control = list(adapt_delta = 0.8, max_treedepth = 30),
-                     chains = 4,
-                     cores = 4,
-                     thin = 1)
-save(combined_short, file = 'models/combined_short')
+# combined_short <- brm(SamplesInAOI|trials(SamplesTotal) ~
+#                        (ot1 + ot2 + ot3) *
+#                        Age_C * Cond_C +
+#                        (1 + ot1 + ot2 + ot3|ID),
+#                      family = binomial('logit'),
+#                      prior = prior,
+#                      data = combined,
+#                      warmup = 1000,
+#                      iter = 2000,
+#                      control = list(adapt_delta = 0.8, max_treedepth = 30),
+#                      chains = 4,
+#                      cores = 4,
+#                      thin = 1)
+# save(combined_short, file = 'models/combined_short')
 
-preds <- data.frame(fitted(combined_short, type = 'response'))
-summary(combined_short)
+combined_short2 <- brm(SamplesInAOI|trials(SamplesTotal) ~
+                         (ot1 + ot2 + ot3) *
+                         Age_C * Cond_C +
+                         (1 + ot1 + ot2 + ot3|ID:Condition),
+                       family = binomial('logit'),
+                       prior = prior,
+                       data = combined,
+                       warmup = 1000,
+                       iter = 2000,
+                       control = list(adapt_delta = 0.8, max_treedepth = 30),
+                       chains = 4,
+                       cores = 4,
+                       thin = 1)
+save(combined_short2, file = 'models/combined_short2')
+
+preds <- data.frame(fitted(combined_short2, type = 'response'))
+
+summary(combined_short2)
 
 combmodel <- cbind(combined, preds)
 
@@ -461,8 +484,10 @@ combshortmodel <- combmodel %>%
             Prop = mean(Prop))
 
 combshortmodel %>% 
+  mutate(Experiment = ifelse(Condition == 'Closure', 'Experiment 1', 'Experiment 2')) %>% 
   ggplot(aes(x = Time, y = Prop,
-             colour = Condition, linetype = Condition, shape = Condition, fill = Condition)) +
+             colour = Experiment, linetype = Experiment, 
+             shape = Experiment, fill = Experiment)) +
   geom_pointrange(aes(ymin = Prop - S.E., ymax = Prop + S.E.), alpha = 0.3) +
   stat_summary(aes(y = Estimate), geom = 'line', fun.y = 'mean', size = 1.5) +
   geom_ribbon(aes(ymin = Q2.5, ymax = Q97.5), colour = NA, alpha = 0.2) +
@@ -471,8 +496,10 @@ combshortmodel %>%
   coord_cartesian(ylim = c(0.4, 0.75), xlim = c(0, 2000)) +
   xlab('Time (ms)') +
   ylab('Prop looks to target') +
-  scale_colour_manual(values = c('navyblue', 'turquoise')) + #NOT TURQUOISE!
-  scale_fill_manual(values = c('navyblue', 'turquoise')) +
+  # scale_colour_manual(values = c('navyblue', 'turquoise')) + #NOT TURQUOISE!
+  # scale_fill_manual(values = c('navyblue', 'turquoise')) +
+  scale_colour_jco() +
+  scale_fill_jco() +
   facet_wrap(~Age) +
   ggsave('plots/BayesComb_short.pdf', width = 11.69, height = 8.27)
 ################################################################
@@ -504,10 +531,11 @@ onsets <- make_onset_data(response_clean3, onset_time = 0,
                           fixation_window_length = 100, 
                           target_aoi='TargetLook')
 
-plot(onsets, predictor_columns = 'Condition') +
+plot(onsets, predictor_columns = 'Experiment') +
   theme_classic(base_size = 24) +
   theme(legend.position = c(.8,.65)) +
-  scale_color_manual(values = c('navyblue', 'turquoise'))
+  #scale_color_manual(values = c('navyblue', 'turquoise')) +
+  scale_color_jco()
 
 onset_switches <- make_switch_data(onsets, 
                                    predictor_columns = c("Condition", 'Age'))
@@ -533,74 +561,88 @@ model_switches <- brm(FirstSwitch ~ FirstAOIC * Cond_C * Age_C +
                       thin = 1)
 save(model_switches, file = 'models/model_switches')
 
-summary(model_switches)
+#gamma
+model_switches2 <- brm(FirstSwitch ~ FirstAOIC * Cond_C * Age_C +
+                         (1|Trial) + (1|ID),
+                       data = onsetsw,
+                       prior = c(prior(normal(0,800),class="Intercept"),
+                                 prior(normal(0,800),class="b"),
+                                 prior(gamma(0.01,0.01),class="shape")),
+                       family = Gamma(link = 'log'),
+                       inits = c(1,2,4,3),
+                       warmup = 1000,
+                       iter = 2000,
+                       chains = 4,
+                       thin = 1)
+save(model_switches2, file = 'models/model_switches2')
+summary(model_switches2)
 ################################################################
 #old onsets
 #first make dataset to compare
-compdata <- response_window_clean %>% 
-  filter(Condition == 'Control') %>% 
-  group_by(ID) %>% 
-  summarise(cditotal = first(cditotal)) %>% 
-  select(ID) %>% 
-  ungroup()
-
-compdata2 <- response_window_clean %>% 
-  filter(Condition == 'Closure') 
-
-outdata <- left_join(compdata, compdata2)
-
-outdata2 <- response_window_clean %>% 
-  filter(Condition == 'Control')
-
-response_window_clean2 <- rbind(outdata, outdata2)
-
-response_window_clean3 <- make_eyetrackingr_data(response_window_clean2, 
-                                                 participant_column = "ID",
-                                                 trial_column = "Trial",
-                                                 time_column = "Timestamp",
-                                                 trackloss_column = "Other",
-                                                 aoi_columns = c('TargetLook','DistLook'),
-                                                 treat_non_aoi_looks_as_missing = TRUE)
-
-response_clean3 <- subset_by_window(response_window_clean3,
-                                    window_start_time = 2000,
-                                    window_end_time = 5000,
-                                    rezero = T,
-                                    remove = T)
-
-onsets <- make_onset_data(response_clean3, onset_time = 0, 
-                          fixation_window_length = 100, target_aoi='TargetLook')
-
-plot(onsets, predictor_columns = 'Condition') +
-  theme_classic(base_size = 24) +
-  theme(legend.position = c(.8,.65)) +
-  scale_color_manual(values = c('navyblue', 'turquoise'))
-
-
-onset_switches <- make_switch_data(onsets, predictor_columns = c("Condition", 'Age'))
-
-onsetsw <- onset_switches %>% 
-  mutate(Age = as.character(Age)) %>% 
-  mutate(Age_C = ifelse(Age == '16', 0.5, -0.5)) %>% 
-  mutate(Cond_C = ifelse(Condition == 'Closure', 0.5, -0.5)) %>% 
-  mutate(FirstAOIC = ifelse(FirstAOI == 'TargetLook', 0.5, -0.5))
-
-plot(onsetsw, predictor_columns = c('Condition', 'Age'))
-
-prior1 <- set_prior("normal(0,800)", class = "b")
-
-model_switches <- brm(FirstSwitch ~ FirstAOIC * Cond_C * Age_C +
-                        (1|Trial) + (1|ID),
-                      data = onsetsw,
-                      prior = prior1,
-                      family = gaussian,
-                      warmup = 1000,
-                      iter = 2000,
-                      chains = 4,
-                      thin = 1)
-save(model_switches, file = 'models/model_switches')
-
-summary(model_switches)
+# compdata <- response_window_clean %>% 
+#   filter(Condition == 'Control') %>% 
+#   group_by(ID) %>% 
+#   summarise(cditotal = first(cditotal)) %>% 
+#   select(ID) %>% 
+#   ungroup()
+# 
+# compdata2 <- response_window_clean %>% 
+#   filter(Condition == 'Closure') 
+# 
+# outdata <- left_join(compdata, compdata2)
+# 
+# outdata2 <- response_window_clean %>% 
+#   filter(Condition == 'Control')
+# 
+# response_window_clean2 <- rbind(outdata, outdata2)
+# 
+# response_window_clean3 <- make_eyetrackingr_data(response_window_clean2, 
+#                                                  participant_column = "ID",
+#                                                  trial_column = "Trial",
+#                                                  time_column = "Timestamp",
+#                                                  trackloss_column = "Other",
+#                                                  aoi_columns = c('TargetLook','DistLook'),
+#                                                  treat_non_aoi_looks_as_missing = TRUE)
+# 
+# response_clean3 <- subset_by_window(response_window_clean3,
+#                                     window_start_time = 2000,
+#                                     window_end_time = 5000,
+#                                     rezero = T,
+#                                     remove = T)
+# 
+# onsets <- make_onset_data(response_clean3, onset_time = 0, 
+#                           fixation_window_length = 100, target_aoi='TargetLook')
+# 
+# plot(onsets, predictor_columns = 'Condition') +
+#   theme_classic(base_size = 24) +
+#   theme(legend.position = c(.8,.65)) +
+#   scale_color_manual(values = c('navyblue', 'turquoise'))
+# 
+# 
+# onset_switches <- make_switch_data(onsets, predictor_columns = c("Condition", 'Age'))
+# 
+# onsetsw <- onset_switches %>% 
+#   mutate(Age = as.character(Age)) %>% 
+#   mutate(Age_C = ifelse(Age == '16', 0.5, -0.5)) %>% 
+#   mutate(Cond_C = ifelse(Condition == 'Closure', 0.5, -0.5)) %>% 
+#   mutate(FirstAOIC = ifelse(FirstAOI == 'TargetLook', 0.5, -0.5))
+# 
+# plot(onsetsw, predictor_columns = c('Condition', 'Age'))
+# 
+# prior1 <- set_prior("normal(0,800)", class = "b")
+# 
+# model_switches <- brm(FirstSwitch ~ FirstAOIC * Cond_C * Age_C +
+#                         (1|Trial) + (1|ID),
+#                       data = onsetsw,
+#                       prior = prior1,
+#                       family = gaussian,
+#                       warmup = 1000,
+#                       iter = 2000,
+#                       chains = 4,
+#                       thin = 1)
+# save(model_switches, file = 'models/model_switches')
+# 
+# summary(model_switches)
 
 
 #################################################################
@@ -612,6 +654,7 @@ onset_switches2 <- make_switch_data(onsets,
 source('misc/flatviolin.R')
 
 onset_switches2 %>% 
+  mutate(Experiment = ifelse(Condition == 'Closure', 'Experiment 1', 'Experiment 2')) %>%
   mutate(Age = as.character(Age)) %>% 
   filter(!is.na(FirstSwitch)) %>% 
   mutate(AOI = ifelse(FirstAOI == 'TargetLook', 'Target', 'Other')) %>% 
@@ -619,13 +662,15 @@ onset_switches2 %>%
   geom_flat_violin(alpha = 0.5, position = position_nudge(x = .2, y = 0), colour = NA) +
   geom_boxplot(width = .2,  outlier.shape = NA, alpha = 0.5) +
   geom_point(position = position_jitter(width = .2), size = 1, alpha = 0.8) +
-  facet_wrap(~Condition) +
+  facet_wrap(~Experiment) +
   theme(legend.position = c(0.9, 0.8)) +
   xlab('Age group') +
   ylab('Mean switch time (ms)') +
   coord_flip(ylim = c(0,2000)) +
-  scale_colour_manual(values = c('turquoise', 'navyblue')) +
-  scale_fill_manual(values = c('turquoise', 'navyblue')) +
+  # scale_colour_manual(values = c('turquoise', 'navyblue')) +
+  # scale_fill_manual(values = c('turquoise', 'navyblue')) +
+  scale_colour_jco() +
+  scale_fill_jco() +
   ggsave('plots/OnsetSwitches.pdf', width = 11.69, height = 8.27)
 
 ######################################################################
@@ -668,3 +713,83 @@ CN_sig16 <- make_cool_splines_data.time_sequence_data(subset(CNtimecourse, Age =
 CN16_split <- analyze_boot_splines(CN_sig16) 
 
 plot(CN16_split)
+
+#########################################################
+#combined posterior draws.
+combinedoutput <- add_predicted_draws(newdata = combined, 
+                                      model = combined_short2,
+                                      scale = 'response') 
+
+combinedoutput2 <- combinedoutput %>% 
+  ungroup() %>% 
+  mutate(Estimate = .prediction/SamplesTotal) %>% 
+  select(ID, Age, Gender, Time, Condition, .draw, Estimate) %>% 
+  spread(Condition, Estimate) %>% 
+  mutate(Difference = Control - Closure)
+
+combinedoutput3 <- combinedoutput2 %>% 
+  group_by(.draw, Time, Age) %>% 
+  summarise(Difference = mean(Difference, na.rm = T)) %>% 
+  ungroup() %>% 
+  group_by(Age, Time) %>% 
+  summarise(min_Diff = min(Difference, na.rm = T),
+            max_Diff = max(Difference, na.rm = T),
+            Diff = mean(Difference, na.rm = T)) %>% 
+  ungroup()
+
+combinedoutput3 %>% 
+  ggplot(aes(x = Time, y = Diff, fill = Age, colour = Age)) +
+  # stat(, alpha = 0.3) +
+  #stat_summary(geom = 'line', fun = 'mean', alpha = 0.3) +
+  geom_ribbon(aes(ymin = min_Diff, ymax = max_Diff), alpha = 0.2, colour = NA) +
+  geom_line(size = 1) +
+  # geom_line(alpha = 0.2) +
+  geom_hline(yintercept = 0, linetype = 2, colour = 'red') +
+  theme(legend.position = c(0.2, 0.85)) +
+  xlab('Time (ms)') +
+  ylab('Difference between conditions') +
+  # scale_colour_manual(values = c('navyblue', 'turquoise')) + #NOT TURQUOISE!
+  # scale_fill_manual(values = c('navyblue', 'turquoise')) +
+  scale_colour_jco() +
+  scale_fill_jco() +
+  facet_wrap(~Age)
+
+##########################################################
+#Exp 1 posterior draws.
+ex1output <- add_predicted_draws(newdata = CLtimecourse, 
+                                 model = clo_brm_short,
+                                 scale = 'response') 
+
+ex1output2 <- ex1output %>% 
+  ungroup() %>% 
+  mutate(Estimate = .prediction/SamplesTotal) %>% 
+  select(ID, Age, Gender, Time, .draw, Estimate) 
+
+ex1output3 <- ex1output2 %>% 
+  group_by(.draw, Time, Age) %>% 
+  summarise(Estimate = mean(Estimate, na.rm = T)) %>% 
+  ungroup() %>% 
+  spread(Age, Estimate) %>% 
+  mutate(Difference = `19` - `16`) %>% 
+  group_by(Time) %>% 
+  summarise(min_Diff = min(Difference, na.rm = T),
+            max_Diff = max(Difference, na.rm = T),
+            Diff = mean(Difference, na.rm = T)) %>% 
+  ungroup()
+
+ex1output3 %>% 
+  ggplot(aes(x = Time, y = Diff)) +
+  # stat(, alpha = 0.3) +
+  #stat_summary(geom = 'line', fun = 'mean', alpha = 0.3) +
+  geom_ribbon(aes(ymin = min_Diff, ymax = max_Diff), alpha = 0.2, colour = NA) +
+  geom_line(size = 1) +
+  # geom_line(alpha = 0.2) +
+  geom_hline(yintercept = 0, linetype = 2, colour = 'red') +
+  theme(legend.position = c(0.2, 0.85)) +
+  xlab('Time (ms)') +
+  ylab('Difference between age groups') +
+  # scale_colour_manual(values = c('navyblue', 'turquoise')) + #NOT TURQUOISE!
+  # scale_fill_manual(values = c('navyblue', 'turquoise')) +
+  scale_colour_jco() +
+  scale_fill_jco() 
+##########################################################
