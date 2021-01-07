@@ -159,9 +159,9 @@ timecourse %>%
   geom_hline(yintercept = 0.5, colour = 'red', linetype = 2) +
   theme(legend.position = c(0.85, 0.85)) +
   xlab('Time (ms)') +
-  ylab('Prop looks to target') +
+  ylab('Proportion looks to target') +
   #scale_colour_manual(values = c('navyblue', 'turquoise')) +
-  scale_color_jco() +
+  scale_color_manual(values = c('forestgreen', 'purple')) +
   ggsave('plots/Overall.pdf', width = 11.69, height = 8.27)
 #########################################################################
 # analyse Exp1
@@ -306,8 +306,7 @@ CNtimecourse <- CNtimecourse %>%
 #   xlab('Time (ms)') +
 #   ylab('Prop looks to target') +
 #   scale_colour_manual(values = c('navyblue', 'turquoise'))
-# 
-# acf(resid(modtest2))
+
 
 
 
@@ -373,7 +372,7 @@ CNshortmodel %>%
   ggsave('plots/BayesExp2_short.pdf', width = 11.69, height = 8.27)
 
 ################################################################
-# team plot and model THIS needs fixing for timescales
+# team plot and model 
 
 names <- inner_join(CNtimecourse[1], CLtimecourse[1], by = 'ID')
 names <- distinct(names)
@@ -481,25 +480,24 @@ combshortmodel <- combmodel %>%
             Q2.5 = mean(Q2.5),
             Q97.5 = mean(Q97.5),
             S.E. = se(Prop),
-            Prop = mean(Prop))
+            Prop = mean(Prop)) %>% 
+  ungroup()
 
 combshortmodel %>% 
   mutate(Experiment = ifelse(Condition == 'Closure', 'Experiment 1', 'Experiment 2')) %>% 
   ggplot(aes(x = Time, y = Prop,
              colour = Experiment, linetype = Experiment, 
              shape = Experiment, fill = Experiment)) +
-  geom_pointrange(aes(ymin = Prop - S.E., ymax = Prop + S.E.), alpha = 0.3) +
-  stat_summary(aes(y = Estimate), geom = 'line', fun.y = 'mean', size = 1.5) +
+  geom_pointrange(aes(ymin = Prop - S.E., ymax = Prop + S.E.), alpha = 0.3, linetype = 1) +
+  stat_summary(aes(y = Estimate), geom = 'line', fun = 'mean', size = 1.5) +
   geom_ribbon(aes(ymin = Q2.5, ymax = Q97.5), colour = NA, alpha = 0.2) +
   geom_hline(yintercept = 0.5, linetype = 2, colour = 'red') +
   theme(legend.position = c(0.2, 0.85)) +
   coord_cartesian(ylim = c(0.4, 0.75), xlim = c(0, 2000)) +
   xlab('Time (ms)') +
-  ylab('Prop looks to target') +
-  # scale_colour_manual(values = c('navyblue', 'turquoise')) + #NOT TURQUOISE!
-  # scale_fill_manual(values = c('navyblue', 'turquoise')) +
-  scale_colour_jco() +
-  scale_fill_jco() +
+  ylab('Proportion looks to target') +
+  scale_color_manual(values = c('forestgreen', 'purple')) +
+  scale_fill_manual(values = c('forestgreen', 'purple')) +
   facet_wrap(~Age) +
   ggsave('plots/BayesComb_short.pdf', width = 11.69, height = 8.27)
 ################################################################
@@ -534,9 +532,11 @@ onsets <- make_onset_data(response_clean3, onset_time = 0,
 plot(onsets, predictor_columns = 'Experiment') +
   theme_classic(base_size = 24) +
   theme(legend.position = c(.8,.65)) +
+  #facet_wrap(~ Experiment,  labeller = labeller(Experiment = xplab)) +
   #scale_color_manual(values = c('navyblue', 'turquoise')) +
-  scale_color_jco()
-
+  scale_color_manual(values = c('forestgreen', 'purple')) +
+  scale_linetype_manual(labels = c('Target', 'Other'), values = c('solid', 'dotted')) +
+  guides(linetype = guide_legend(title = 'AOI'))
 onset_switches <- make_switch_data(onsets, 
                                    predictor_columns = c("Condition", 'Age'))
 
@@ -576,74 +576,25 @@ model_switches2 <- brm(FirstSwitch ~ FirstAOIC * Cond_C * Age_C +
                        thin = 1)
 save(model_switches2, file = 'models/model_switches2')
 summary(model_switches2)
-################################################################
-#old onsets
-#first make dataset to compare
-# compdata <- response_window_clean %>% 
-#   filter(Condition == 'Control') %>% 
-#   group_by(ID) %>% 
-#   summarise(cditotal = first(cditotal)) %>% 
-#   select(ID) %>% 
-#   ungroup()
-# 
-# compdata2 <- response_window_clean %>% 
-#   filter(Condition == 'Closure') 
-# 
-# outdata <- left_join(compdata, compdata2)
-# 
-# outdata2 <- response_window_clean %>% 
-#   filter(Condition == 'Control')
-# 
-# response_window_clean2 <- rbind(outdata, outdata2)
-# 
-# response_window_clean3 <- make_eyetrackingr_data(response_window_clean2, 
-#                                                  participant_column = "ID",
-#                                                  trial_column = "Trial",
-#                                                  time_column = "Timestamp",
-#                                                  trackloss_column = "Other",
-#                                                  aoi_columns = c('TargetLook','DistLook'),
-#                                                  treat_non_aoi_looks_as_missing = TRUE)
-# 
-# response_clean3 <- subset_by_window(response_window_clean3,
-#                                     window_start_time = 2000,
-#                                     window_end_time = 5000,
-#                                     rezero = T,
-#                                     remove = T)
-# 
-# onsets <- make_onset_data(response_clean3, onset_time = 0, 
-#                           fixation_window_length = 100, target_aoi='TargetLook')
-# 
-# plot(onsets, predictor_columns = 'Condition') +
-#   theme_classic(base_size = 24) +
-#   theme(legend.position = c(.8,.65)) +
-#   scale_color_manual(values = c('navyblue', 'turquoise'))
-# 
-# 
-# onset_switches <- make_switch_data(onsets, predictor_columns = c("Condition", 'Age'))
-# 
-# onsetsw <- onset_switches %>% 
-#   mutate(Age = as.character(Age)) %>% 
-#   mutate(Age_C = ifelse(Age == '16', 0.5, -0.5)) %>% 
-#   mutate(Cond_C = ifelse(Condition == 'Closure', 0.5, -0.5)) %>% 
-#   mutate(FirstAOIC = ifelse(FirstAOI == 'TargetLook', 0.5, -0.5))
-# 
-# plot(onsetsw, predictor_columns = c('Condition', 'Age'))
-# 
-# prior1 <- set_prior("normal(0,800)", class = "b")
-# 
-# model_switches <- brm(FirstSwitch ~ FirstAOIC * Cond_C * Age_C +
-#                         (1|Trial) + (1|ID),
-#                       data = onsetsw,
-#                       prior = prior1,
-#                       family = gaussian,
-#                       warmup = 1000,
-#                       iter = 2000,
-#                       chains = 4,
-#                       thin = 1)
-# save(model_switches, file = 'models/model_switches')
-# 
-# summary(model_switches)
 
+#better priors
+model_switches3 <- brm(FirstSwitch ~ FirstAOIC * Cond_C * Age_C +
+                         (1|Trial) + (1|ID),
+                       data = onsetsw,
+                       prior = c(prior(cauchy(0,10),class="Intercept"),
+                                 prior(cauchy(0,2.5),class="b"), #Priors from Gelman 2008
+                                 prior(gamma(0.01,0.01),class="shape")),
+                       family = Gamma(link = 'log'),
+                       inits = c(1,2,4,3),
+                       warmup = 1000,
+                       iter = 2000,
+                       chains = 4,
+                       thin = 1)
+save(model_switches3, file = 'models/model_switches3')
+
+summary(model_switches3)
+launch_shinystan(model_switches3)
+################################################################
 
 #################################################################
 #plot switches
@@ -667,10 +618,10 @@ onset_switches2 %>%
   xlab('Age group') +
   ylab('Mean switch time (ms)') +
   coord_flip(ylim = c(0,2000)) +
-  # scale_colour_manual(values = c('turquoise', 'navyblue')) +
-  # scale_fill_manual(values = c('turquoise', 'navyblue')) +
-  scale_colour_jco() +
-  scale_fill_jco() +
+  scale_colour_manual(values = c('red', 'grey2')) +
+  scale_fill_manual(values = c('red', 'grey2')) +
+  # scale_colour_jco() +
+  # scale_fill_jco() +
   ggsave('plots/OnsetSwitches.pdf', width = 11.69, height = 8.27)
 
 ######################################################################
@@ -745,7 +696,7 @@ combinedoutput3 %>%
   geom_line(size = 1) +
   # geom_line(alpha = 0.2) +
   geom_hline(yintercept = 0, linetype = 2, colour = 'red') +
-  theme(legend.position = c(0.2, 0.85)) +
+  theme(legend.position = 'none') +
   xlab('Time (ms)') +
   ylab('Difference between conditions') +
   # scale_colour_manual(values = c('navyblue', 'turquoise')) + #NOT TURQUOISE!
