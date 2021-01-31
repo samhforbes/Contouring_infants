@@ -162,7 +162,7 @@ timecourse %>%
   ylab('Proportion looks to target') +
   #scale_colour_manual(values = c('navyblue', 'turquoise')) +
   scale_color_manual(values = c('forestgreen', 'purple')) +
-  ggsave('plots/Overall.pdf', width = 11.69, height = 8.27)
+  ggsave('plots/Overall.svg', width = 11.69, height = 8.27)
 #########################################################################
 # analyse Exp1
 CL_clean2 <- subset_by_window(CLdata_clean,
@@ -262,7 +262,7 @@ CLshortmodel %>%
   # scale_fill_manual(values = c('navyblue', 'turquoise')) +
   scale_color_jco() +
   scale_fill_jco() +
-  ggsave('plots/BayesExp1_short.pdf', width = 11.69, height = 8.27)
+  ggsave('plots/BayesExp1_short.svg', width = 11.69, height = 8.27)
 
 
 
